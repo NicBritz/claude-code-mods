@@ -8,6 +8,11 @@
   },
   "types": "./types/index.d.ts",
   "license": "MIT",
+  "homepage": "https://github.com/NicBritz/claude-code-mods/tree/main/mods/dungeon-master",
+  "repository": "https://github.com/NicBritz/claude-code-mods",
+  "documentationUrl": "https://github.com/NicBritz/claude-code-mods/tree/main/mods/dungeon-master#readme",
+  "supportUrl": "https://github.com/NicBritz/claude-code-mods/issues",
+  "privacyPolicyUrl": "https://github.com/NicBritz/claude-code-mods/tree/main/mods/dungeon-master#what-it-keeps-and-reads",
   "keywords": [
     "dnd",
     "fun",
