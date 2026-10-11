@@ -752,6 +752,18 @@ async function stop($: Engine, pal: Pal): Promise<void> {
   await finish($, pal.id, 'stopped', '')
 }
 
+// What a permission request shows: the hero (or your character) asks, in
+// words. Runs beside the request and never answers it.
+function showAsk($: Engine, agentId: string | undefined, tool: string, input: unknown): void {
+  const what = askPhrase(tool, input)
+  if (agentId === undefined) {
+    if (currentQuest !== null) currentQuest = { ...currentQuest, asked: currentQuest.asked + 1 }
+    overlordAsks($, OVERLORD_VOICE.ask(what)).catch(() => undefined)
+    return
+  }
+  ask($, agentId, pal => heroOf(pal.hero).ask(what)).catch(() => undefined)
+}
+
 async function setSwitch($: Engine, key: Switch, isOn: boolean): Promise<void> {
   await changeSettings($, now => ({ ...now, [key]: isOn }))
 }
@@ -2554,16 +2566,8 @@ export const register: Register = on => {
 
   // Someone asks permission: the card (or the strip) says so and what is
   // asked. The decision is always the app's own prompt: this hook only reads.
-  on('classic.PermissionRequest', async ($, e, next) => {
-    const agentId = e.agent_id
-    const what = askPhrase(e.tool_name, e.tool_input)
-    if (agentId === undefined) {
-      await overlordAsks($, OVERLORD_VOICE.ask(what)).catch(() => undefined)
-      if (currentQuest !== null) currentQuest = { ...currentQuest, asked: currentQuest.asked + 1 }
-    } else {
-      await ask($, agentId, pal => heroOf(pal.hero).ask(what)).catch(() => undefined)
-    }
-
+  on('classic.PermissionRequest', ($, e, next) => {
+    showAsk($, e.agent_id, e.tool_name, e.tool_input)
     return next(e)
   })
 
