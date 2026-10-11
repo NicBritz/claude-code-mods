@@ -57,7 +57,7 @@ function engine(on: On): Bench {
     return { value: undefined }
   })
   on('tool.check', () => ({ decision: bench.allows.value ? 'allow' : 'ask' }))
-  on('classic.PermissionRequest', () => ({}))
+  on('classic.Notification', () => ({}))
   on('classic.SubagentStop', () => ({}))
   on('agent.spawn', ($, e) => ({ model: 'sonnet', agentId: e.tool_use_id.replace('toolu-', '') }))
   on('turn.complete', ($, e) => ({ text: e.answer }))
@@ -105,7 +105,12 @@ const complete = (agentId: string, reason: 'answer' | 'error' | 'aborted', answe
   ...(withUsage ? { usage: USAGE } : {}),
 })
 
-const ask = (agentId: string) => ({ tool_name: 'Bash', tool_input: { command: 'pnpm test' }, agent_id: agentId, agent_type: 'Explore' })
+// The app's notice that someone waits on a permission prompt.
+const ask = (agentId?: string) => ({
+  message: 'Claude needs your permission to run pnpm test',
+  notification_type: 'permission_prompt',
+  ...(agentId === undefined ? {} : { agent_id: agentId, agent_type: 'Explore' }),
+})
 
 describe('a hero follows its subagent', () => {
   test('sets out on spawn, asks for permission, then rests in the graveyard', async ($, on) => {
@@ -125,11 +130,10 @@ describe('a hero follows its subagent', () => {
       await ui.unmount()
     }
 
-    await $.classic.PermissionRequest(ask('a1'))
+    await $.classic.Notification(ask('a1'))
     const asking = await $.ui.mount(pane('desktop'))
     expect(await asking.find({ text: /run pnpm test/ })).toBeDefined()
     expect(await asking.find({ text: /1 needs you/ })).toBeDefined()
-    // The panel was not on screen, so the card offers no Allow / Deny.
     expect(await asking.find({ key: 'allow:a1' })).toBeUndefined()
     await asking.unmount()
 
@@ -275,7 +279,7 @@ describe('the overlord: the main thread', () => {
     expect(await working.find({ text: /The Overlord · reading pricing\.ts/ })).toBeDefined()
     await working.unmount()
 
-    await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'git push' } })
+    await $.classic.Notification(ask())
     const asking = await $.ui.mount(band('desktop'))
     expect(await asking.find({ text: /The Overlord · needs you/ })).toBeDefined()
     await asking.unmount()
@@ -595,7 +599,7 @@ describe('stamina and the quest log', () => {
     await $.tool.call({ tool: 'Read', file_path: '/repo/src/pricing.ts' })
     await $.tool.call({ tool: 'Read', file_path: '/repo/src/pricing.ts' })
     await $.tool.call({ tool: 'Edit', file_path: '/repo/src/pricing.ts', old_string: 'a', new_string: 'b' } as never)
-    await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'git push' } })
+    await $.classic.Notification(ask())
     await $.turn.complete({ ...complete('x', 'answer', 'Fixed it.'), agentId: undefined, durationMs: 65_000 })
 
     const view = await $.ui.mount(pane('desktop'))
@@ -923,7 +927,7 @@ describe('what the person does from the panel', () => {
 
     await bench.clock.advance(5000)
     await spawn($, 'm2', 'Second quest')
-    await $.classic.PermissionRequest(ask('m2'))
+    await $.classic.Notification(ask('m2'))
     await $.turn.complete(complete('m1', 'answer', 'Done.'))
     expect(bench.played).toEqual(['sounds/set-out.wav'])
 
@@ -939,7 +943,7 @@ describe('what the person does from the panel', () => {
     const bench = engine(on)
     bench.isPaneShown.value = true
     await spawn($, 'p3', 'Fetch a page')
-    expect(await $.classic.PermissionRequest(ask('p3'))).toEqual({})
+    expect(await $.classic.Notification(ask('p3'))).toEqual({})
     const ui = await $.ui.mount(pane('desktop'))
     expect(await ui.find({ key: 'allow:p3' })).toBeUndefined()
     expect(await ui.find({ text: /1 needs you/ })).toBeDefined()

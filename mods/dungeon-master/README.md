@@ -118,8 +118,9 @@ permission rules already allow that tool (otherwise it says which rule to add an
 **Events it watches**, all read-only. Each passes the event on unchanged:
 - every tool call (to tell each step as a deed and keep the camp);
 - every model response (its token usage fills the context bars);
-- each helper starting, finishing or asking permission (to draw its hero). A permission request only shows
-  on the hero's card. You answer it in the app's own prompt, as always;
+- each helper starting and finishing (to draw its hero);
+- the app's own notices, so a hero (or your character) shows when it waits on a permission prompt. The
+  mod has no permission hook at all: you answer in the app's own prompt, as always;
 - background-task notices, and compaction.
 
 **Also**

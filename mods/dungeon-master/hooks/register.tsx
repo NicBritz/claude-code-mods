@@ -52,7 +52,6 @@ import {
   HEROES,
   MINI_SIZE,
   OVERLORD_VOICE,
-  askPhrase,
   assignHero,
   epitaph,
   heroOf,
@@ -750,18 +749,6 @@ async function stop($: Engine, pal: Pal): Promise<void> {
     return
   }
   await finish($, pal.id, 'stopped', '')
-}
-
-// What a permission request shows: the hero (or your character) asks, in
-// words. Runs beside the request and never answers it.
-function showAsk($: Engine, agentId: string | undefined, tool: string, input: unknown): void {
-  const what = askPhrase(tool, input)
-  if (agentId === undefined) {
-    if (currentQuest !== null) currentQuest = { ...currentQuest, asked: currentQuest.asked + 1 }
-    overlordAsks($, OVERLORD_VOICE.ask(what)).catch(() => undefined)
-    return
-  }
-  ask($, agentId, pal => heroOf(pal.hero).ask(what)).catch(() => undefined)
 }
 
 async function setSwitch($: Engine, key: Switch, isOn: boolean): Promise<void> {
@@ -2564,16 +2551,16 @@ export const register: Register = on => {
     return ran
   }).catch(($, e, next) => next(e))
 
-  // Someone asks permission: the card (or the strip) says so and what is
-  // asked. The decision is always the app's own prompt: this hook only reads.
-  on('classic.PermissionRequest', ($, e, next) => {
-    showAsk($, e.agent_id, e.tool_name, e.tool_input)
-    return next(e)
-  })
-
+  // The app's own notices: a helper or the main thread waiting on a
+  // permission prompt shows as asking. The mod never answers a permission
+  // request; that is always the app's own prompt.
   on('classic.Notification', async ($, e, next) => {
     const agentId = e.agent_id
     if (agentId !== undefined) await ask($, agentId, () => e.message).catch(() => undefined)
+    else if (e.notification_type === 'permission_prompt') {
+      if (currentQuest !== null) currentQuest = { ...currentQuest, asked: currentQuest.asked + 1 }
+      await overlordAsks($, e.message).catch(() => undefined)
+    }
 
     return next(e)
   })
