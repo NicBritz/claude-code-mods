@@ -215,6 +215,8 @@ declare module 'claude-code' {
       confirming: string | null
       isLightApp: boolean
       hasAutoOpened: boolean
+      // Until when showcase mode draws made-up content (epoch ms); 0 when off.
+      showcaseUntil: number
       openGrave: string | null
       view: View
       fame: Record<string, Fame>

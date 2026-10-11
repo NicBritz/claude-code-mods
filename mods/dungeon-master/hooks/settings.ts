@@ -105,6 +105,7 @@ export type RealmAsk =
   | { kind: 'settings' }
   | { kind: 'demo' }
   | { kind: 'status' }
+  | { kind: 'showcase' }
   | { kind: 'theme'; theme: string }
   | { kind: 'font'; font: string }
   | { kind: 'name'; name: string }
@@ -132,6 +133,7 @@ export function readRealmAsk(args: string): RealmAsk {
   if (words[0] === 'settings' && words.length === 1) return { kind: 'settings' }
   if (words[0] === 'demo' && words.length === 1) return { kind: 'demo' }
   if (words[0] === 'status' && words.length === 1) return { kind: 'status' }
+  if (words[0] === 'showcase' && words.length === 1) return { kind: 'showcase' }
   if (words[0] === 'theme') return { kind: 'theme', theme: words[1] ?? '' }
   if (words[0] === 'font') return { kind: 'font', font: words[1] ?? '' }
   if (words[0] === 'volume') {

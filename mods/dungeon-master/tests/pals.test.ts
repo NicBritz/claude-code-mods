@@ -976,6 +976,24 @@ describe('what the person does from the panel', () => {
     await ui.unmount()
   })
 
+  test('showcase draws only made-up content: no real hero, prompt or session shows', async ($, on) => {
+    engine(on)
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+    await spawn($, 'real1', 'Fix the secret billing bug')
+    await $.turn.start({ turnId: 't1', text: 'Private: rotate the payroll keys' } as never)
+    const run = await $.command.run({ command: 'dm', args: 'showcase', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } })
+    expect(run.text).toContain('Showcase')
+    const ui = await $.ui.mount(pane('desktop'))
+    const party = await said(ui)
+    expect(party).not.toMatch(/secret billing|payroll/)
+    expect(party).toMatch(/Demo: guard the eastern gate/)
+    await ui.press({ key: 'view-map' })
+    const map = await said(ui)
+    expect(map).not.toMatch(/secret billing|payroll/)
+    expect(map).toMatch(/Riverford watchtower|riverford/i)
+    await ui.unmount()
+  })
+
   test('the panel only calls tools the rules allow, so nothing goes to a checker that costs tokens', async ($, on) => {
     const bench = engine(on)
     bench.allows.value = false

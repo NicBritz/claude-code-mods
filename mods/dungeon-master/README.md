@@ -62,6 +62,8 @@ the **Stop** buttons use.
 
 - `/dm` opens the DM screen; `/dm settings` opens the Tome; `/dm demo` plays a 40-second show of heroes,
   context bars and compaction
+- `/dm showcase` swaps in made-up heroes, sessions and quests for 5 minutes, so you can take screenshots
+  without showing anything of your own
 - `/dm status` says what is on and how the map is doing (for bug reports)
 - `/dm name <name>` names your character; `/dm theme <name>`; `/dm font fantasy|app`; `/dm volume 0-100`
 - `/dm <hud|rows|dice|sound|panel> on|off`

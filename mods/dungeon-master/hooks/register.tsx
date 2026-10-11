@@ -43,6 +43,7 @@ import {
   isNightOwlHour,
   readEarned,
 } from './achievements'
+import { SHOWCASE_MS, showcaseGraves, showcaseKingdoms, showcaseLord, showcaseQuests, showcaseSessions } from './showcase'
 import { LOOKS, SCORE_NAMES, croppedFigure, figureTop, lookName, modifier, portraitSvg, scoreBarSvg, sheetOf, stepLook } from './characters'
 import { detailsMarkdown, hintWords, spinnerWords, toolWords } from './words'
 import {
@@ -185,6 +186,8 @@ const ARCHIVE_RULE_MARKDOWN =
   '```json\n"permissions": {\n  "allow": [\n    "mcp__ccd_session_mgmt__archive_session",\n    "mcp__ccd_session_mgmt__unarchive_session",\n    "mcp__ccd_session_mgmt__list_sessions",\n    "TaskStop"\n  ]\n}\n```'
 // Every other open session on this machine, as the map shows them.
 const realm = atom({ plugin: 'dungeon-master', key: 'realm' } as const, [] as Kingdom[])
+// Showcase mode: until this time every page draws made-up content (showcase.ts).
+const showcaseUntil = atom({ plugin: 'dungeon-master', key: 'showcaseUntil' } as const, 0)
 
 const STORE_FAME = 'fame'
 const STORE_SETTINGS = 'settings'
@@ -688,7 +691,7 @@ const DEMO = [
 ] as const
 const DEMO_WINDOW = 200_000
 
-async function demo($: Engine): Promise<void> {
+async function demo($: Engine, holdMs = 40_000): Promise<void> {
   const now = await $.clock.now()
   for (const one of DEMO) {
     await addPal($, one.id, one.description, one.type)
@@ -731,7 +734,7 @@ async function demo($: Engine): Promise<void> {
   $.clock.after(22_000, () => {
     compacting($, undefined, null, { messages: [], tokensAfter: Math.round(window * 0.09) }).catch(() => undefined)
   })
-  $.clock.after(40_000, () => {
+  $.clock.after(holdMs, () => {
     changeCamp($, tasks => tasks.filter(one => !one.id.startsWith('demo-')))
       .then(() => update($, pals, list => list.filter(pal => !pal.id.startsWith('demo-'))))
       .then(() => changeOverlord($, current => ({ ...current, context: lordBefore })))
@@ -1036,6 +1039,7 @@ function archiveAnswer(ran: unknown): { ok: boolean; text: string } {
 }
 
 async function archiveOne($: Engine, id: string, title: string): Promise<{ ok: boolean; text: string }> {
+  if (id.startsWith('demo-')) return { ok: false, text: 'it is a showcase session, made up for pictures' }
   if (!(await toolIsAllowed($, ARCHIVE_SESSION, { session_id: id }))) return { ok: false, text: 'archiving is not in your allow list yet' }
   let timer: { cancel: () => void } | undefined
   const timeout = new Promise<{ ok: boolean; text: string }>(resolve => {
@@ -1084,6 +1088,7 @@ async function nameSession($: Engine, id: string, text: string): Promise<void> {
 // Restore: the app's unarchive, the same way round; the session comes back
 // to the sidebar and onto the map.
 async function restoreSession($: Engine, one: AppSession): Promise<void> {
+  if (one.id.startsWith('demo-')) return
   if (!(await toolIsAllowed($, UNARCHIVE_SESSION, { session_id: one.id }))) return
   $.ui.toast(`Restoring ${one.title}…`)
   const answer = await $.tool
@@ -1137,15 +1142,17 @@ const looped = (draw: (frame: number) => string) => animatedSvg(LOOP_FRAMES.map(
 // --- the strip above the prompt -------------------------------------------
 
 async function drawBand($: Engine, e: RenderInput<'AbovePrompt'>): Promise<RenderElement> {
-  const list = await read($, pals)
+  const allPals = await read($, pals)
   await read($, tick)
   const chosen = await read($, settings)
   const isOpen = await read($, isPaneOpen)
   const crit = await read($, critical)
   // Narrower than the breakpoint, the button sits under the words.
   const isNarrowStrip = (e.props.bodyColumns ?? 120) < NARROW_STRIP_COLUMNS
-  const lord = await read($, overlord)
   const now = await $.clock.now()
+  const isShowcase = (await read($, showcaseUntil)) > now
+  const list = isShowcase ? allPals.filter(pal => pal.id.startsWith('demo-')) : allPals
+  const lord = isShowcase ? showcaseLord(await read($, overlord)) : await read($, overlord)
   const frame = Math.floor(now / FRAME_MS)
   const isTerminal = e.surface === 'terminal'
   const live = list.filter(isActive)
@@ -1153,7 +1160,7 @@ async function drawBand($: Engine, e: RenderInput<'AbovePrompt'>): Promise<Rende
   const look = await lookNow($, chosen.theme)
   const hiddenInHud = chosen.hidden
   const limits = hiddenInHud.includes('stamina') ? [] : await read($, stamina)
-  const inCamp = hiddenInHud.includes('camp') ? 0 : (await read($, camp)).filter(isRunningWork).length
+  const inCamp = hiddenInHud.includes('camp') ? 0 : (await read($, camp)).filter(one => !isShowcase || one.id.startsWith('demo-')).filter(isRunningWork).length
   const { Box, Text, Button } = $.ui.resolve(e)
   // Always drawn, so the way into the panel is there from the first prompt:
   // the party when one is out, else the Overlord (the main thread) alone.
@@ -1260,7 +1267,7 @@ async function drawBand($: Engine, e: RenderInput<'AbovePrompt'>): Promise<Rende
 
 async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElement> {
   const { Box, Text, Button } = $.ui.resolve(e)
-  const list = await read($, pals)
+  const allPals = await read($, pals)
   const opened = await read($, openGrave)
   const prefs = await read($, settings)
   const showing = await read($, view)
@@ -1268,12 +1275,16 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
   // Only the party page moves: the clocks and the walk redraw it alone.
   if (showing === 'party') await read($, tick)
   const records = await read($, fame)
-  const lord = await read($, overlord)
-  const kingdoms = await read($, realm)
+  const shownAt = await $.clock.now()
+  // Showcase: made-up heroes, map, quests and camp, nothing of the person's own.
+  const isShowcase = (await read($, showcaseUntil)) > shownAt
+  const list = isShowcase ? [...allPals.filter(pal => pal.id.startsWith('demo-') && isActive(pal)), ...showcaseGraves(shownAt)] : allPals
+  const lord = isShowcase ? showcaseLord(await read($, overlord)) : await read($, overlord)
+  const kingdoms = isShowcase ? showcaseKingdoms(shownAt) : await read($, realm)
   const limits = await read($, stamina)
-  const questLog = await read($, quests)
+  const questLog = isShowcase ? showcaseQuests(shownAt) : await read($, quests)
   const shows = (key: Section) => !prefs.hidden.includes(key)
-  const campTasks = shows('camp') ? await read($, camp) : []
+  const campTasks = shows('camp') ? (await read($, camp)).filter(one => !isShowcase || one.id.startsWith('demo-')) : []
   const look = await lookNow($, prefs.theme)
   const now = await $.clock.now()
   const frame = Math.floor(now / FRAME_MS)
@@ -1632,13 +1643,13 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
   // The map: this session first, then every other running one, then the ones
   // open in the app's sidebar but not running. Each can be gone to or closed.
   if (showing === 'map') {
-    const fromApp = await read($, appSessions)
+    const fromApp = isShowcase ? showcaseSessions(now).open : await read($, appSessions)
     const { Markdown } = $.ui.resolve(e)
     const folded = new Set(await read($, mapFolded))
     const shownRows = await read($, mapShown)
     const isShowingHelp = await read($, showArchiveHelp)
     const sure = await read($, confirming)
-    const archived = await read($, archivedSessions)
+    const archived = isShowcase ? showcaseSessions(now).archived : await read($, archivedSessions)
     const kept = new Set(await read($, keptByApp))
     const hereId = hostIdOf(selfLink)
     const isHeld = (id: string | null) => id !== null && (kept.has(id) || fromApp.some(one => one.id === id && one.isPinned))
@@ -1661,7 +1672,7 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
     // has not started yet): idle, never asleep.
     const quietNow = fromApp.filter(one => !runningIds.has(one.id) && !isHeld(one.id) && !isQuietLongEnough(one)).sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()) || a.id.localeCompare(b.id))
     const appOf = (k: Kingdom) => fromApp.find(one => one.id === hostIdOf(k.link))
-    const names = await read($, sessionNames)
+    const names = isShowcase ? {} : await read($, sessionNames)
     const renamingId = await read($, renaming)
     const titleOf = (k: Kingdom) => {
       const id = hostIdOf(k.link)
@@ -2403,6 +2414,17 @@ export const register: Register = on => {
       }
       if (!shown.isPlaced) return { text: `The DM screen needs a wider window. Settings now: ${settingsWords(await read($, settings))}.` }
       return { text: asked.kind === 'settings' ? "Opened the DM's Tome (settings)." : 'Opened the DM screen.' }
+    }
+    if (asked.kind === 'showcase') {
+      const until = (await $.clock.now()) + SHOWCASE_MS
+      await update($, showcaseUntil, () => until)
+      await update($, view, () => 'party')
+      await $.ui.open({ id: PANE, title: TITLE, focus: true })
+      await demo($, SHOWCASE_MS).catch(() => undefined)
+      $.clock.after(SHOWCASE_MS, () => {
+        update($, showcaseUntil, () => 0).catch(() => undefined)
+      })
+      return { text: 'Showcase: for 5 minutes every page shows made-up heroes, sessions and quests, so you can take pictures safely. Your own things come back after.' }
     }
     // What a bug report needs, shown to the person only (no tool for the model).
     if (asked.kind === 'status') {
