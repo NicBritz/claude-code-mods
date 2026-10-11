@@ -1,0 +1,12 @@
+{
+  "name": "nicbritz-mods",
+  "description": "Nico Britz's mods for Claude Code: fun, free extras that run inside Claude Code and never spend a token.",
+  "owner": { "name": "Nico Britz", "url": "https://github.com/NicBritz" },
+  "plugins": [
+    {
+      "name": "dungeon-master",
+      "source": "./mods/dungeon-master",
+      "description": "Run Claude Code like a D&D table: a DM screen of pixel heroes, your character, a rolling d20, a Realm Map of your sessions, levels and achievements. No tokens used."
+    }
+  ]
+}
