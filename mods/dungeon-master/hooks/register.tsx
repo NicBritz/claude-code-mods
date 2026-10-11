@@ -1407,7 +1407,7 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
             await update($, view, () => 'map')
             await refreshAppSessions($, true)
           },
-          { isMain: showing === 'map' || someoneWaits },
+          { isMain: showing === 'map' },
         )}
         {act('view-fame', 'Fame', () => update($, view, () => 'fame'), { isMain: showing === 'fame' })}
         {act('view-settings', 'Settings', () => update($, view, () => 'settings'), { isMain: showing === 'settings' })}
