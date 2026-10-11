@@ -5,17 +5,17 @@ sends off on a task is a pixel hero who walks, asks, wins and falls in a side pa
 Everything runs inside the mod: it adds nothing to Claude's prompt, registers no tool for Claude, and costs
 no tokens.
 
-<p align="center"><img src="media/character.gif" alt="Thornwick the Ranger idling on the character select screen" width="300"></p>
+![Thornwick the Ranger idling on the character select screen](media/character.gif)
 
-<p align="center"><img src="media/strip.png" alt="The strip above the message box: your character, context left and plan limits, and the DM screen toggle" width="720"></p>
+![The strip above the message box: your character, context left and plan limits, and the DM screen toggle](media/strip.png)
 
 | Your Party | The Realm Map |
 |:---:|:---:|
-| <img src="media/party.png" alt="Pixel heroes on quests with context bars, the camp and the graveyard" width="360"> | <img src="media/map.png" alt="Every Claude session sorted into Pinned, Needs you, Working, Idle, Asleep and Archived" width="360"> |
+| ![Pixel heroes on quests with context bars, the camp and the graveyard](media/party.png) | ![Every Claude session sorted into Pinned, Needs you, Working, Idle, Asleep and Archived](media/map.png) |
 | **Hall of Heroes** | **Choose your character** |
-| <img src="media/fame.png" alt="Each hero's level and XP across sessions" width="360"> | <img src="media/character.png" alt="A character select screen with tale and ability scores" width="360"> |
+| ![Each hero's level and XP across sessions](media/fame.png) | ![A character select screen with tale and ability scores](media/character.png) |
 | **Ten themes, light and dark** | **Steps told as deeds** |
-| <img src="media/wildwood.png" alt="The Tome in the wildwood theme" width="360"> | <img src="media/deeds.png" alt="A tool step shown as Forged with a hammer icon" width="360"> |
+| ![The Tome in the wildwood theme](media/wildwood.png) | ![A tool step shown as Forged with a hammer icon](media/deeds.png) |
 
 <sub>Pictures taken in showcase mode (`/dm showcase`): every hero, session and quest in them is made up.</sub>
 
@@ -100,6 +100,8 @@ Mods run with your own permissions on your machine, unsandboxed, so here is ever
 - **Asks the app** for its session list only while the Realm Map is on screen, and archives or restores a
   session only when you press the button.
 - **Opens** only the app's own `claude://` session links (Go), with macOS `open`.
+- **Stops** a helper or background command only when you press its **Stop** (Claude Code's own `TaskStop`).
+- **Plays** its own sound files from `sounds/`. It sends nothing over the network and never calls a model.
 
 ## Licence
 

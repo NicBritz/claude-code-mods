@@ -10,7 +10,7 @@ prompt or call a model, so they never spend a token.
 |---|---|
 | [Dungeon Master](mods/dungeon-master) | Run Claude Code like a D&D table: a DM screen of pixel heroes for every helper Claude sends out, your character above the message box, a rolling d20, a Realm Map of your sessions, levels and achievements, ten D&D themes in light and dark. |
 
-<p align="center"><a href="mods/dungeon-master"><img src="mods/dungeon-master/media/character.gif" alt="A pixel ranger on the Dungeon Master character select screen" width="260"> <img src="mods/dungeon-master/media/party.png" alt="Dungeon Master: pixel heroes for every helper Claude sends out" width="300"></a></p>
+![A pixel ranger on the Dungeon Master character select screen](mods/dungeon-master/media/character.gif) ![Dungeon Master: pixel heroes for every helper Claude sends out](mods/dungeon-master/media/party.png)
 
 More are on the way.
 
