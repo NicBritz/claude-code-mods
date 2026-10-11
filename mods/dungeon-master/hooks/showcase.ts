@@ -35,7 +35,6 @@ export function showcaseGraves(now: number): Pal[] {
     startedAt: now - ago - 6 * MIN,
     endedAt: now - ago,
     ask: null,
-    canDecide: false,
     epitaph: '',
     lastWords,
     usage: null,

@@ -23,7 +23,7 @@ no tokens.
 
 | Page | What you get |
 |---|---|
-| **Your Party** | A hero for every helper Claude sends out (Fighter, Wizard, Rogue and nine more), walking while they work, with what they are doing, how much context they have left, **Stop**, and **Allow** / **Deny** when one asks permission. Below: **the camp** (commands and monitors left running in the background, with Stop), the **quest log** (a receipt for each of your last turns) and the **graveyard** (finished heroes, their last words and XP). |
+| **Your Party** | A hero for every helper Claude sends out (Fighter, Wizard, Rogue and nine more), walking while they work, with what they are doing, how much context they have left, **Stop**, and what it is asking when it needs your permission (you answer in the app's own prompt). Below: **the camp** (commands and monitors left running in the background, with Stop), the **quest log** (a receipt for each of your last turns) and the **graveyard** (finished heroes, their last words and XP). |
 | **The Realm Map** | Every Claude session open in the desktop app, sorted into Pinned, Needs you, Working, Idle, Asleep and Archived. **Go** jumps to one, **Archive** (or **Archive all**) clears the ones you are done with, **Restore** brings one back, and **Name** gives a session your own quest name. |
 | **Hall of Heroes** | Each hero's XP and level across sessions, their record, and ten **achievements** to earn. |
 | **The DM's Tome** | Settings: **choose your character** (the Overlord or any hero, with its tale and ability scores, and your own name), the strip, sounds and volume, the rolling d20, ten D&D themes in light and dark (following the app), the heading lettering, which sections show, and the credits. |
@@ -85,23 +85,49 @@ the **Stop** buttons use.
 ## What it keeps and reads
 
 Mods run with your own permissions on your machine, unsandboxed, so here is everything this one touches.
+It sends nothing over the network, calls no model, and never makes a permission decision.
 
-- **Writes** to `~/.claude/dungeon-master/` (or `$CLAUDE_CONFIG_DIR/dungeon-master/`): `settings.json` (your
-  settings, shared by every open session), `names.json` (names you give sessions) and `sessions/<id>.json`
-  (each open session checks in every few seconds with its folder name, what it is doing and its context
-  left, so the map can show it; **never your prompts**). Plus the mod's own store: the Hall of Heroes,
-  achievements and which sections are folded.
-- **Reads** those files from your other open sessions, the app's own session list (and the file the app saves
-  it to when it is long, only from its own tool-results folder), and the output of background commands you
-  started in this session (the camp shows their newest line).
-- **Checks light or dark** every 30 seconds, so the DM screen follows the app: the one
-  `userThemeMode` value in the Claude app's `config.json`, else the Mac's appearance (`defaults read -g
-  AppleInterfaceStyle`).
-- **Asks the app** for its session list only while the Realm Map is on screen, and archives or restores a
-  session only when you press the button.
-- **Opens** only the app's own `claude://` session links (Go), with macOS `open`.
-- **Stops** a helper or background command only when you press its **Stop** (Claude Code's own `TaskStop`).
-- **Plays** its own sound files from `sounds/`. It sends nothing over the network and never calls a model.
+**Files it writes**, all in its own folder `~/.claude/dungeon-master/` (or `$CLAUDE_CONFIG_DIR/dungeon-master/`).
+None of them is a file Claude Code or any other tool reads as settings or instructions.
+- `settings.json`: the mod's own settings (theme, sounds, your character), shared by your open sessions.
+- `names.json`: names you give sessions on the map.
+- `sessions/<id>.json`: each open session checks in every few seconds with its folder name, what it is doing
+  and its context left, so the map can show it. **Never your prompts.**
+- Plus the mod's own store: the Hall of Heroes, achievements and which sections are folded.
+
+**What it reads**
+- Those files, from your other open sessions.
+- The app's own session list (and the file the app saves it to when it is long, only from its own
+  tool-results folder).
+- The newest output line of background commands you started in this session, for the camp.
+- The first line of your latest message, kept in memory for the strip and the quest log, never written to disk.
+- Three environment values: `HOME` and `CLAUDE_CONFIG_DIR` (to find its folder) and
+  `CLAUDE_CODE_HOST_SESSION_ID` (this session's id in the app, for the map's Go link). No passwords or tokens.
+- The `userThemeMode` value in the Claude app's `config.json`, every 30 seconds, to follow light or dark.
+
+**Programs it runs**, each a fixed macOS command:
+- `defaults read -g AppleInterfaceStyle`: the Mac's light or dark mode, when the app's setting is not there.
+- `open <link>`: only the app's own `claude://` session links, when you press **Go** on the map.
+
+**Tools it calls by itself**, only when you press a button or open the map, and only when your own
+permission rules already allow that tool (otherwise it says which rule to add and does nothing):
+- `list_sessions` (the app's session list) while the Realm Map is on screen.
+- `archive_session` / `unarchive_session` when you press **Archive** or **Restore**.
+- `TaskStop` when you press **Stop** on a hero or a camp card.
+
+**Events it watches**, all read-only. Each passes the event on unchanged:
+- every tool call (to tell each step as a deed and keep the camp);
+- every model response (its token usage fills the context bars);
+- each helper starting, finishing or asking permission (to draw its hero). A permission request only shows
+  on the hero's card. You answer it in the app's own prompt, as always;
+- background-task notices, and compaction.
+
+**Also**
+- `/dm`, its one slash command.
+- A desktop notification when a hero needs you.
+- Its own sound files from `sounds/`.
+- `hooks/sprites.ts`, `hooks/inked.ts` and `hooks/fantasy-font.ts` are drawing data (SVG paths), generated by
+  the scripts in `tools/` from the credited art. They are not compiled code.
 
 ## Licence
 

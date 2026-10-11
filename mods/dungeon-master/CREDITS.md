@@ -8,6 +8,9 @@ Credit is not required; it is given here because it is deserved.
 
 The gravestones are drawn for this mod in the pack's own wall colours and outline, around the pack's skull.
 
+The listing icon (`.claude-plugin/icon.png`, source `tools/icon.svg`), a d20 with pixel numbers, is drawn for this mod
+and uses no one else's art.
+
 The overlord is 0x72's `big_demon`, from the same pack.
 
 The sound effects in `sounds/` are Kenney CC0 samples layered with short phrases synthesised for this mod; see "Sounds" below.

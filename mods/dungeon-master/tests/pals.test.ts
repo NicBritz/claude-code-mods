@@ -935,44 +935,15 @@ describe('what the person does from the panel', () => {
     await ui.unmount()
   })
 
-  test('Allow on the card answers the permission request, with no prompt', async ($, on) => {
-    const bench = engine(on)
-    bench.isPaneShown.value = true
-    await spawn($, 'p1', 'Run the tests')
-    const asked = $.classic.PermissionRequest(ask('p1'))
-    await bench.clock.settle()
-    const ui = await $.ui.mount(pane('desktop'))
-    expect(await ui.find({ key: 'allow:p1' })).toBeDefined()
-    await ui.press({ key: 'allow:p1' })
-    expect(await asked).toEqual({ decision: { behavior: 'allow' } })
-    expect(await ui.find({ key: 'allow:p1' })).toBeUndefined()
-    expect(await ui.find({ text: /1 hero on a quest/ })).toBeDefined()
-    await ui.unmount()
-  })
-
-  test('Deny on the card refuses it', async ($, on) => {
-    const bench = engine(on)
-    bench.isPaneShown.value = true
-    await spawn($, 'p2', 'Push the branch')
-    const asked = $.classic.PermissionRequest(ask('p2'))
-    await bench.clock.settle()
-    const ui = await $.ui.mount(pane('desktop'))
-    await ui.press({ key: 'deny:p2' })
-    expect(await asked).toMatchObject({ decision: { behavior: 'deny' } })
-    await ui.unmount()
-  })
-
-  test('with no press the usual prompt takes over after the wait', async ($, on) => {
+  test('a permission request shows on the card and is always left to the app\'s own prompt', async ($, on) => {
     const bench = engine(on)
     bench.isPaneShown.value = true
     await spawn($, 'p3', 'Fetch a page')
-    const asked = $.classic.PermissionRequest(ask('p3'))
-    await bench.clock.settle()
-    await bench.clock.advance(7000)
-    expect(await asked).toEqual({})
+    expect(await $.classic.PermissionRequest(ask('p3'))).toEqual({})
     const ui = await $.ui.mount(pane('desktop'))
     expect(await ui.find({ key: 'allow:p3' })).toBeUndefined()
     expect(await ui.find({ text: /1 needs you/ })).toBeDefined()
+    expect(await ui.find({ text: /Asks:/ })).toBeDefined()
     await ui.unmount()
   })
 

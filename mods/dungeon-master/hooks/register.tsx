@@ -59,16 +59,12 @@ import {
   heroSvg,
   overlordSvg,
 } from './heroes'
-import type { Choice } from './rules'
 import {
   BORDERS,
-  DECIDE_MS,
   ENDING,
   OUTCOME,
   RECENT_MS,
   borderOf,
-  decide,
-  decisions,
   isActive,
   isCurrent,
   leaderOf,
@@ -358,7 +354,6 @@ async function addPal($: Engine, id: string, description: string, type: string, 
       startedAt: now,
       endedAt: null,
       ask: null,
-      canDecide: false,
       epitaph: '',
       lastWords: '',
       usage: null,
@@ -380,7 +375,6 @@ async function finish($: Engine, id: string, status: PalStatus, lastWords: strin
         status,
         activity: '',
         ask: null,
-        canDecide: false,
         endedAt: now,
         epitaph: epitaph(pal.hero, ENDING[status], pal.id),
         lastWords,
@@ -417,7 +411,7 @@ async function ask($: Engine, id: string, say: (pal: Pal) => string): Promise<bo
 }
 
 async function resume($: Engine, id: string): Promise<void> {
-  await change($, id, pal => (pal.status === 'waiting' ? { ...pal, status: 'working', ask: null, canDecide: false } : null))
+  await change($, id, pal => (pal.status === 'waiting' ? { ...pal, status: 'working', ask: null } : null))
 }
 
 // A turn's usage, priced, onto the pal and its hero's lifetime spend.
@@ -758,8 +752,8 @@ async function stop($: Engine, pal: Pal): Promise<void> {
   await finish($, pal.id, 'stopped', '')
 }
 
-async function setSwitch($: Engine, key: Switch, on: boolean): Promise<void> {
-  await changeSettings($, now => ({ ...now, [key]: on }))
+async function setSwitch($: Engine, key: Switch, isOn: boolean): Promise<void> {
+  await changeSettings($, now => ({ ...now, [key]: isOn }))
 }
 
 // --- the hall of fame ----------------------------------------------------
@@ -2127,15 +2121,6 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
           </Text>
           {contextBar(pal.id, pal, BAR_SIZE)}
           {pal.ask !== null && <Text color={look.text} wrap="wrap">Asks: {wrap(pal.ask)}</Text>}
-          {pal.canDecide === true && (
-            <Box flexDirection="row" gap={1} alignItems="center">
-              <Button key={`allow:${pal.id}`} label="Allow" variant="primary" onPress={() => decide(pal.id, 'allow')} />
-              <Button key={`deny:${pal.id}`} label="Deny" onPress={() => decide(pal.id, 'deny')} />
-              <Text color={look.dim} wrap="wrap">
-                or the usual prompt in {Math.round(DECIDE_MS / 1000)}s
-              </Text>
-            </Box>
-          )}
           {followers.length > 0 && (
             <Box flexDirection="column" gap={1} marginTop={1}>
               {followers.map(follower)}
@@ -2567,45 +2552,17 @@ export const register: Register = on => {
     return ran
   }).catch(($, e, next) => next(e))
 
-  // A subagent asks permission: its card says so and, where the panel is on
-  // screen, offers Allow / Deny for a few seconds before the usual prompt.
-  // Any failure or silence falls through to that prompt; nothing is allowed
-  // that the person did not press.
+  // Someone asks permission: the card (or the strip) says so and what is
+  // asked. The decision is always the app's own prompt: this hook only reads.
   on('classic.PermissionRequest', async ($, e, next) => {
     const agentId = e.agent_id
-    if (agentId === undefined) {
-      await overlordAsks($, OVERLORD_VOICE.ask(askPhrase(e.tool_name, e.tool_input))).catch(() => undefined)
-      if (currentQuest !== null) currentQuest = { ...currentQuest, asked: currentQuest.asked + 1 }
-      return next(e)
-    }
     const what = askPhrase(e.tool_name, e.tool_input)
-    const isAsking = await ask($, agentId, pal => heroOf(pal.hero).ask(what))
-    const panes = await $.ui.panes()
-    const isOnScreen = panes.some(pane => pane.id === PANE && pane.isPlaced && pane.isShown)
-    if (!isAsking || !isOnScreen) return next(e)
-
-    await change($, agentId, pal => ({ ...pal, canDecide: true }))
-    let timer: { cancel: () => void } | undefined
-    const choice = await new Promise<Choice>(resolve => {
-      decisions.set(agentId, resolve)
-      timer = $.clock.after(DECIDE_MS, () => resolve('timeout'))
-    })
-    decisions.delete(agentId)
-    timer?.cancel()
-    await change($, agentId, pal => ({ ...pal, canDecide: false }))
-
-    if (choice === 'allow') {
-      await resume($, agentId)
-      return { decision: { behavior: 'allow' } }
+    if (agentId === undefined) {
+      await overlordAsks($, OVERLORD_VOICE.ask(what)).catch(() => undefined)
+      if (currentQuest !== null) currentQuest = { ...currentQuest, asked: currentQuest.asked + 1 }
+    } else {
+      await ask($, agentId, pal => heroOf(pal.hero).ask(what)).catch(() => undefined)
     }
-    if (choice === 'deny') {
-      await resume($, agentId)
-      return { decision: { behavior: 'deny', message: 'The person denied this from the Dungeon Master panel.' } }
-    }
-
-    return next(e)
-  }).catch(($, e, next) => {
-    if (e.agent_id !== undefined) decisions.delete(e.agent_id)
 
     return next(e)
   })

@@ -9,9 +9,6 @@ import type { Ending } from './heroes'
 const KEEP = 40
 // How long the strip above the prompt keeps saying a quest just ended.
 export const RECENT_MS = 90_000
-// How long a card's Allow / Deny waits for a press before the usual prompt;
-// the engine gives a permission hook ten seconds in all.
-export const DECIDE_MS = 7000
 
 export const isActive = (pal: Pal) => pal.status === 'working' || pal.status === 'waiting'
 
@@ -60,13 +57,6 @@ export function trimmed(list: Pal[]): Pal[] {
   return list.filter(pal => !drop.has(pal.id))
 }
 
-// The card's Allow / Deny: the permission hook waits on one of these.
-export type Choice = 'allow' | 'deny' | 'timeout'
-export const decisions = new Map<string, (choice: Choice) => void>()
-
-export function decide(id: string, choice: Choice): void {
-  decisions.get(id)?.(choice)
-}
 
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 

@@ -39,4 +39,4 @@ export const CREDITS: readonly Credit[] = [
   },
 ]
 
-export const OWN_WORK = 'The themes, the horn and lute phrases, the gravestones and everything else were made for this mod.'
+export const OWN_WORK = 'The themes, the icon, the horn and lute phrases, the gravestones and everything else were made for this mod.'
