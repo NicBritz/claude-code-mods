@@ -5,6 +5,8 @@ sends off on a task is a pixel hero who walks, asks, wins and falls in a side pa
 Everything runs inside the mod: it adds nothing to Claude's prompt, registers no tool for Claude, and costs
 no tokens.
 
+<p align="center"><img src="media/party.png" alt="The DM screen: three pixel heroes on quests with context bars, the camp of background work, and the graveyard" width="420"></p>
+
 ## What is on the DM screen
 
 | Page | What you get |
