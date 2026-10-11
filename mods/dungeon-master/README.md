@@ -5,6 +5,8 @@ sends off on a task is a pixel hero who walks, asks, wins and falls in a side pa
 Everything runs inside the mod: it adds nothing to Claude's prompt, registers no tool for Claude, and costs
 no tokens.
 
+<p align="center"><img src="media/character.gif" alt="Thornwick the Ranger idling on the character select screen" width="300"></p>
+
 <p align="center"><img src="media/strip.png" alt="The strip above the message box: your character, context left and plan limits, and the DM screen toggle" width="720"></p>
 
 | Your Party | The Realm Map |
