@@ -10,7 +10,8 @@ import { applyChange, campFromCall, lastLine, parseNotification, pruneCamp, reco
 import { listed, newQuest, questGain, questTally, withCall } from '../hooks/quests'
 import { crossing, resetsIn, staminaWords } from '../hooks/stamina'
 import { contextBarSvg, contextBarText, contextWords, windowFor } from '../hooks/context'
-import { HEROES, RUNE_WAVE, askPhrase, assignHero, heroSvg, overlordSvg } from '../hooks/heroes'
+import { FRAME_MS, HEROES, RUNE_WAVE, askPhrase, assignHero, heroSvg, overlordSvg } from '../hooks/heroes'
+import { LOOP_FRAMES } from '../hooks/art'
 
 const SURFACES = ['desktop', 'terminal'] as const
 
@@ -239,6 +240,29 @@ describe('a hero follows its subagent', () => {
     const working = await $.ui.mount(band('desktop'))
     expect(await working.find({ text: /The Overlord · thinking/ })).toBeDefined()
     await working.unmount()
+  })
+
+  test('the strip says what your character is doing while heroes are out, and its picture runs on the clock', async ($, on) => {
+    const bench = engine(on)
+    await spawn($, 'a1', 'Audit the pricing page')
+    await $.turn.start({ text: 'Fix the bug', turnId: 'main-1' })
+    await $.tool.call({ tool: 'Read', file_path: '/repo/src/pricing.ts' })
+
+    const loopMs = FRAME_MS * LOOP_FRAMES.length
+    const phase = () => `begin="-${((bench.clock.now() % loopMs) / 1000).toFixed(3)}s"`
+    const hud = await $.ui.mount(band('desktop'))
+    expect(await hud.find({ text: /The Overlord · reading pricing\.ts.*1 hero on a quest/ })).toBeDefined()
+    const [figure] = await hud.findAll({ type: 'Svg' })
+    expect(String(figure?.props.source)).toContain(phase())
+    await hud.unmount()
+
+    // A tool step later, the picture picks up where the clock is, not at frame 0.
+    await bench.clock.advance(700)
+    await $.tool.call({ tool: 'Read', file_path: '/repo/src/vat.ts' })
+    const later = await $.ui.mount(band('desktop'))
+    const [again] = await later.findAll({ type: 'Svg' })
+    expect(String(again?.props.source)).toContain(phase())
+    await later.unmount()
   })
 
   test('the panel opens at the start of every session, once, before any subagent', async ($, on) => {

@@ -52,17 +52,28 @@ export function diePicture(frame: number, size: number, ink: string, face: strin
 // Several drawings of one picture (successive animation frames, each a whole
 // <svg>) as one <svg> that steps through them by itself, forever. The panel
 // then never redraws to animate, so a click never lands mid-redraw and is lost.
-export function animatedSvg(frames: readonly string[], stepMs: number): string {
+//
+// The loop runs on the clock, not from when the picture was drawn: the desktop
+// builds a fresh image on every redraw, and a loop that began at its first
+// frame each time froze on it while tool steps redrew the strip several times
+// a second. atMs (the clock now) puts every drawing at the moment of the loop
+// the clock is at, so a redraw carries on mid-stride; the still picture, for
+// a surface that does not animate, is that moment's frame.
+export function animatedSvg(frames: readonly string[], stepMs: number, atMs = 0): string {
   if (frames.length === 0) return ''
   const first = frames[0] ?? ''
   if (frames.length === 1 || frames.every(frame => frame === first)) return first
   const open = /^<svg[^>]*>/.exec(first)?.[0] ?? '<svg xmlns="http://www.w3.org/2000/svg">'
   const inner = (svg: string) => svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '')
-  const total = ((stepMs * frames.length) / 1000).toFixed(2)
+  const loopMs = stepMs * frames.length
+  const total = (loopMs / 1000).toFixed(2)
+  const into = ((Math.round(atMs) % loopMs) + loopMs) % loopMs
+  const showing = Math.floor(into / stepMs)
+  const begin = `-${(into / 1000).toFixed(3)}s`
   const layers = frames
     .map((frame, index) => {
       const values = frames.map((_, at) => (at === index ? '1' : '0')).join(';')
-      return `<g opacity="${index === 0 ? 1 : 0}"><animate attributeName="opacity" values="${values}" dur="${total}s" calcMode="discrete" repeatCount="indefinite"/>${inner(frame)}</g>`
+      return `<g opacity="${index === showing ? 1 : 0}"><animate attributeName="opacity" values="${values}" dur="${total}s" begin="${begin}" calcMode="discrete" repeatCount="indefinite"/>${inner(frame)}</g>`
     })
     .join('')
   return `${open}${layers}</svg>`

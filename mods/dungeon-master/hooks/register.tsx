@@ -1129,8 +1129,9 @@ async function leaveRealm($: Engine): Promise<void> {
   await $.fs.write(kingdomFile(dir, selfId), JSON.stringify({ ...lastWritten, hasEnded: true })).catch(() => undefined)
 }
 
-// A moving drawing as one self-animating picture: fn draws frame n.
-const looped = (draw: (frame: number) => string) => animatedSvg(LOOP_FRAMES.map(draw), FRAME_MS)
+// A moving drawing as one self-animating picture: fn draws frame n, and now
+// (the clock) keeps the loop going across redraws (animatedSvg says why).
+const looped = (draw: (frame: number) => string, now: number) => animatedSvg(LOOP_FRAMES.map(draw), FRAME_MS, now)
 
 // --- the strip above the prompt -------------------------------------------
 
@@ -1160,20 +1161,22 @@ async function drawBand($: Engine, e: RenderInput<'AbovePrompt'>): Promise<Rende
   const mainName = chosen.mainName
   const condensing = [...(isCompacting(lord) ? [mainName] : []), ...live.filter(isCompacting).map(pal => heroOf(pal.hero).name)]
   const left = leftOf(lord.context)
-  const words =
-    condensing.length > 0
-      ? `${CONDENSING}: ${condensing.join(', ')}`
-      : live.length > 0
+  // Your character leads, saying what it is doing, with the party after it:
+  // a helper setting out never hides the main thread's own step.
+  const mainWords = `${mainName} · ${
+    lord.status === 'working'
+      ? `${lord.activity || 'thinking'} · ${elapsed(now - lord.startedAt)}`
+      : lord.status === 'waiting'
+        ? 'needs you'
+        : OVERLORD_VOICE.idle
+  }${isTerminal && left !== null ? ` · ${Math.round(left * 100)}% context left` : ''}`
+  const partyWords =
+    live.length > 0
       ? summary(list)
       : recent.length > 0
         ? `${plural(recent.length, 'quest', 'quests')} just ended: ${recent.map(pal => heroOf(pal.hero).name).join(', ')}`
-        : `${mainName} · ${
-            lord.status === 'working'
-              ? `${lord.activity || 'thinking'} · ${elapsed(now - lord.startedAt)}`
-              : lord.status === 'waiting'
-                ? 'needs you'
-                : OVERLORD_VOICE.idle
-          }${isTerminal && left !== null ? ` · ${Math.round(left * 100)}% context left` : ''}`
+        : ''
+  const words = condensing.length > 0 ? `${CONDENSING}: ${condensing.join(', ')}` : [mainWords, partyWords].filter(Boolean).join(' · ')
   const campWords = inCamp > 0 ? ` · ${inCamp} in camp` : ''
 
   // The HUD: a dungeon-stone panel, the Overlord striding in its corner and
@@ -1201,12 +1204,12 @@ async function drawBand($: Engine, e: RenderInput<'AbovePrompt'>): Promise<Rende
       {!isTerminal &&
         (chosen.mainLook < 0
           ? (() => {
-              const art = croppedFigure(looped(f => overlordSvg(lord.status, f, isCompacting(lord), figureTop(-1) - 2)), -1, HUD_LORD_SIZE.height / 38)
+              const art = croppedFigure(looped(f => overlordSvg(lord.status, f, isCompacting(lord), figureTop(-1) - 2), now), -1, HUD_LORD_SIZE.height / 38)
               return svg(art.svg, `${mainName}, your character`, art)
             })()
           : (() => {
               const art = croppedFigure(
-                looped(f => heroSvg(chosen.mainLook, lord.status === 'waiting', lord.status !== 'idle' || isCompacting(lord) ? f : 0, HUD_HERO_SIZE, isCompacting(lord), figureTop(chosen.mainLook) - 2)),
+                looped(f => heroSvg(chosen.mainLook, lord.status === 'waiting', lord.status !== 'idle' || isCompacting(lord) ? f : 0, HUD_HERO_SIZE, isCompacting(lord), figureTop(chosen.mainLook) - 2), now),
                 chosen.mainLook,
                 HUD_HERO_SIZE.height / 30,
               )
@@ -1228,7 +1231,7 @@ async function drawBand($: Engine, e: RenderInput<'AbovePrompt'>): Promise<Rende
         )}
         {!isTerminal && (
           <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
-            {svg(looped(f => contextBarSvg(lord.context, f, isCompacting(lord), BAR_SIZE)), contextWords(lord.context, isCompacting(lord)), BAR_SIZE)}
+            {svg(looped(f => contextBarSvg(lord.context, f, isCompacting(lord), BAR_SIZE), now), contextWords(lord.context, isCompacting(lord)), BAR_SIZE)}
             <Text color={look.dim} wrap="wrap">
               {contextWords(lord.context, isCompacting(lord))}
             </Text>
@@ -1304,7 +1307,7 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
     const words = contextWords(who.context, condensing)
     return (
       <Box key={`context:${key}`} flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
-        {picture(looped(f => contextBarSvg(who.context, f, condensing, size)), isTerminal ? contextBarText(who.context, condensing) : words, size)}
+        {picture(looped(f => contextBarSvg(who.context, f, condensing, size), now), isTerminal ? contextBarText(who.context, condensing) : words, size)}
         <Text color={look.dim} wrap="wrap">
           {isTerminal ? words.replace(/^Context:? ?/, '') : words}
         </Text>
@@ -1737,7 +1740,7 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
           borderColor={isWaiting ? 'warning' : look.frame}
           backgroundColor={look.card}
         >
-          {picture(looped(f => overlordSvg(k.status, f, k.isCompacting)), isTerminal ? (isWaiting ? '!' : '>') : `${title}'s overlord`, REALM_LORD_SIZE)}
+          {picture(looped(f => overlordSvg(k.status, f, k.isCompacting), now), isTerminal ? (isWaiting ? '!' : '>') : `${title}'s overlord`, REALM_LORD_SIZE)}
           <Box flexDirection="column" flexGrow={1} flexShrink={1}>
             <Text color={look.name} bold wrap="wrap">
               {wrap(title)}
@@ -2056,7 +2059,7 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
     const isWaiting = pal.status === 'waiting'
     return (
       <Box key={`follower:${pal.id}`} flexDirection="row" gap={1}>
-        {picture(looped(f => heroSvg(pal.hero, isWaiting, f, FOLLOWER_SIZE, isCompacting(pal))), isTerminal ? '↳' : `${hero.name} the ${hero.title}`, FOLLOWER_SIZE)}
+        {picture(looped(f => heroSvg(pal.hero, isWaiting, f, FOLLOWER_SIZE, isCompacting(pal)), now), isTerminal ? '↳' : `${hero.name} the ${hero.title}`, FOLLOWER_SIZE)}
         <Box flexDirection="column" flexGrow={1} flexShrink={1}>
           <Text color={look.text} wrap="wrap">
             <Text color={look.name} bold>↳ {hero.name}</Text>
@@ -2093,7 +2096,7 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
         backgroundColor={look.card}
       >
         {picture(
-          looped(f => heroSvg(pal.hero, isWaiting, f, PARTY_HERO_SIZE, isCompacting(pal))),
+          looped(f => heroSvg(pal.hero, isWaiting, f, PARTY_HERO_SIZE, isCompacting(pal)), now),
           isTerminal ? (isWaiting ? '!' : isCompacting(pal) ? '~' : '>') : `${hero.name} the ${hero.title}`,
           PARTY_HERO_SIZE,
         )}

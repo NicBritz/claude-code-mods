@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { diePicture, headingPicture, iconPicture, rolledFace } from '../hooks/art'
+import { LOOP_FRAMES, animatedSvg, diePicture, headingPicture, iconPicture, rolledFace } from '../hooks/art'
 
 describe('the art', () => {
   test('the rolled d20 always lands on 1 to 20, and every face turns up', () => {
@@ -17,6 +17,20 @@ describe('the art', () => {
     const faces = new Set(Array.from({ length: 8 }, (_, frame) => diePicture(frame, 22, '#F0A04B', '#1C1814', '#F5EEDF').svg))
     expect(faces.size).toBeGreaterThan(5)
     expect(diePicture(3, 22, '#F0A04B', '#1C1814', '#F5EEDF')).toMatchObject({ width: 22, height: 22 })
+  })
+
+  test('a looping picture runs on the clock, so a redraw carries on mid-stride instead of starting over', () => {
+    const frames = LOOP_FRAMES.map(n => `<svg xmlns="http://www.w3.org/2000/svg"><rect x="${n}"/></svg>`)
+    const at = (ms: number) => animatedSvg(frames, 200, ms)
+    // 1000 ms into the 1600 ms loop: every layer's animation is already 1 s in,
+    // and the still picture (before the animation starts) is the sixth frame.
+    expect(at(1000)).toContain('begin="-1.000s"')
+    expect(at(1000).match(/<g opacity="(\d)">/g)?.indexOf('<g opacity="1">')).toBe(5)
+    // The same moment of a later loop draws the very same picture.
+    expect(at(1000 + 1600 * 7)).toBe(at(1000))
+    expect(at(1100)).not.toBe(at(1000))
+    // A picture that does not move stays one plain frame.
+    expect(animatedSvg([frames[0] ?? '', frames[0] ?? ''], 200, 1000)).toBe(frames[0])
   })
 
   test('icons take the theme colour; headings are fantasy or the app font', () => {

@@ -1,6 +1,6 @@
 {
   "name": "dungeon-master",
-  "version": "3.7.0",
+  "version": "3.7.1",
   "description": "Run Claude Code like a D&D table: a DM screen of pixel heroes for every helper Claude sends out, a strip with your character, a rolling d20, a Realm Map to manage your sessions, levels, achievements and ten D&D themes in light and dark. No tokens used.",
   "author": {
     "name": "Nico Britz",
