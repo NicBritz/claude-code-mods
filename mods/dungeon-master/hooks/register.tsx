@@ -80,7 +80,7 @@ import {
 const pals = atom({ plugin: 'dungeon-master', key: 'pals' } as const, [] as Pal[])
 const tick = atom({ plugin: 'dungeon-master', key: 'tick' } as const, 0)
 // The animation frame, one step per FRAME_MS while anyone is at work: only the
-// drawings that redraw anyway read it (the strip and the rolling die), so
+// drawings that move read it (the strip, the party page, the rolling die), so
 // a redraw for the walk never reaches the settings, fame or map pages and
 // swallows a click there.
 const frameTick = atom({ plugin: 'dungeon-master', key: 'frameTick' } as const, 0)
@@ -1284,6 +1284,8 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
   const levelGlow = showing === 'party' ? await read($, levelUps) : {}
   // Only the party page moves: the clocks and the walk redraw it alone.
   if (showing === 'party') await read($, tick)
+  // At work the party page steps on the frame timer like the strip (looped says why).
+  const partyStep = showing === 'party' && isMoving(await read($, pals), await read($, overlord)) ? await read($, frameTick) : undefined
   const records = await read($, fame)
   const shownAt = await $.clock.now()
   // Showcase: made-up heroes, map, quests and camp, nothing of the person's own.
@@ -2093,7 +2095,7 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
     const isWaiting = pal.status === 'waiting'
     return (
       <Box key={`follower:${pal.id}`} flexDirection="row" gap={1}>
-        {picture(looped(f => heroSvg(pal.hero, isWaiting, f, FOLLOWER_SIZE, isCompacting(pal)), now), isTerminal ? '↳' : `${hero.name} the ${hero.title}`, FOLLOWER_SIZE)}
+        {picture(looped(f => heroSvg(pal.hero, isWaiting, f, FOLLOWER_SIZE, isCompacting(pal)), now, partyStep), isTerminal ? '↳' : `${hero.name} the ${hero.title}`, FOLLOWER_SIZE)}
         <Box flexDirection="column" flexGrow={1} flexShrink={1}>
           <Text color={look.text} wrap="wrap">
             <Text color={look.name} bold>↳ {hero.name}</Text>
@@ -2130,7 +2132,7 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
         backgroundColor={look.card}
       >
         {picture(
-          looped(f => heroSvg(pal.hero, isWaiting, f, PARTY_HERO_SIZE, isCompacting(pal)), now),
+          looped(f => heroSvg(pal.hero, isWaiting, f, PARTY_HERO_SIZE, isCompacting(pal)), now, partyStep),
           isTerminal ? (isWaiting ? '!' : isCompacting(pal) ? '~' : '>') : `${hero.name} the ${hero.title}`,
           PARTY_HERO_SIZE,
         )}

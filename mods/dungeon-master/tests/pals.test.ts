@@ -1505,13 +1505,25 @@ describe('safety', () => {
 
 
 describe('steady clicks', () => {
-  test('heroes walk inside their own picture, so the party page never redraws to animate', async ($, on) => {
-    engine(on)
+  test('at work the party page heroes step on the frame timer, and a redraw between ticks changes nothing', async ($, on) => {
+    const bench = engine(on)
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+    on('command.register', ($, e) => ({ value: { command: e.name } }))
+    on('session.start', ($, e) => ({ cwd: e.cwd }))
+    await $.session.start({ cwd: '/repo', surface: null, isInteractive: false })
     await spawn($, 'w1', 'Walk the walls')
-    const view = await $.ui.mount(pane('desktop'))
-    const hero = (await view.findAll({ type: 'Svg' })).find(svg => String(svg.props.alt).includes(' the '))
-    expect(String(hero?.props.source)).toContain('<animate attributeName="opacity"')
-    await view.unmount()
+    const heroNow = async () => {
+      const view = await $.ui.mount(pane('desktop'))
+      const hero = (await view.findAll({ type: 'Svg' })).find(svg => String(svg.props.alt).includes(' the '))
+      const source = String(hero?.props.source)
+      await view.unmount()
+      return source
+    }
+    const first = await heroNow()
+    expect(first).not.toContain('<animate')
+    expect(await heroNow()).toBe(first)
+    await bench.clock.advance(FRAME_MS)
+    expect(await heroNow()).not.toBe(first)
   })
 
   test('the gravestone being read is framed and marked', async ($, on) => {
