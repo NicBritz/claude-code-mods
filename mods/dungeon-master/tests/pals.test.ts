@@ -2,6 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On, RenderElement } from 'claude-code'
 import type { Engine, MockClock } from 'claude-code/testing'
 
+import { MOD } from '../hooks/credits'
 import { describeCall, elapsed, firstLine, softBreak } from '../hooks/activity'
 import { dollars, priced, spend } from '../hooks/cost'
 import { levelOf, progressBar, xpFor } from '../hooks/fame'
@@ -242,27 +243,48 @@ describe('a hero follows its subagent', () => {
     await working.unmount()
   })
 
-  test('the strip says what your character is doing while heroes are out, and its picture runs on the clock', async ($, on) => {
+  test('the strip says what your character is doing while heroes are out, and at work it steps on the frame timer', async ($, on) => {
     const bench = engine(on)
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+    on('command.register', ($, e) => ({ value: { command: e.name } }))
+    on('session.start', ($, e) => ({ cwd: e.cwd }))
+    await $.session.start({ cwd: '/repo', surface: null, isInteractive: false })
     await spawn($, 'a1', 'Audit the pricing page')
     await $.turn.start({ text: 'Fix the bug', turnId: 'main-1' })
     await $.tool.call({ tool: 'Read', file_path: '/repo/src/pricing.ts' })
 
-    const loopMs = FRAME_MS * LOOP_FRAMES.length
-    const phase = () => `begin="-${((bench.clock.now() % loopMs) / 1000).toFixed(3)}s"`
+    const figureNow = async () => {
+      const hud = await $.ui.mount(band('desktop'))
+      const [figure] = await hud.findAll({ type: 'Svg' })
+      const source = String(figure?.props.source)
+      await hud.unmount()
+      return source
+    }
     const hud = await $.ui.mount(band('desktop'))
     expect(await hud.find({ text: /The Overlord · reading pricing\.ts.*1 hero on a quest/ })).toBeDefined()
-    const [figure] = await hud.findAll({ type: 'Svg' })
-    expect(String(figure?.props.source)).toContain(phase())
     await hud.unmount()
 
-    // A tool step later, the picture picks up where the clock is, not at frame 0.
-    await bench.clock.advance(700)
+    // A still frame, not a loop a rebuilt picture would start late.
+    const first = await figureNow()
+    expect(first).not.toContain('<animate')
+
+    // A tool step between ticks redraws the very same picture: no jump.
     await $.tool.call({ tool: 'Read', file_path: '/repo/src/vat.ts' })
-    const later = await $.ui.mount(band('desktop'))
-    const [again] = await later.findAll({ type: 'Svg' })
-    expect(String(again?.props.source)).toContain(phase())
-    await later.unmount()
+    expect(await figureNow()).toBe(first)
+
+    // The next tick moves it on one frame.
+    await bench.clock.advance(FRAME_MS)
+    expect(await figureNow()).not.toBe(first)
+  })
+
+  test('at rest the strip animates inside its own picture, from the clock', async ($, on) => {
+    const bench = engine(on)
+    const loopMs = FRAME_MS * LOOP_FRAMES.length
+    await bench.clock.advance(700)
+    const hud = await $.ui.mount(band('desktop'))
+    const [figure] = await hud.findAll({ type: 'Svg' })
+    expect(String(figure?.props.source)).toContain(`begin="-${((bench.clock.now() % loopMs) / 1000).toFixed(3)}s"`)
+    await hud.unmount()
   })
 
   test('the panel opens at the start of every session, once, before any subagent', async ($, on) => {
@@ -1594,6 +1616,17 @@ describe('the Tome folds', () => {
     await view.press({ key: 'fold:tome-At the table' })
     expect(await view.find({ key: 'switch:dice' })).toBeUndefined()
     expect(await view.find({ key: 'look-next' })).toBeDefined()
+    await view.unmount()
+  })
+})
+
+describe('the version', () => {
+  test('the Tome shows the version and who made the mod', async ($, on) => {
+    expect(MOD.version).toMatch(/^\d+\.\d+\.\d+$/)
+    engine(on)
+    const view = await $.ui.mount(pane('desktop'))
+    await view.press({ key: 'view-settings' })
+    expect(await view.find({ text: `${MOD.name} ${MOD.version}, made by ${MOD.author}. To update: claude plugin update dungeon-master@nicbritz-mods` })).toBeDefined()
     await view.unmount()
   })
 })

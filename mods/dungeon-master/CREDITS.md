@@ -1,5 +1,9 @@
 # Credits
 
+Dungeon Master is made by **Nico Britz** (https://github.com/NicBritz), under the MIT licence (`LICENSE`).
+The themes, the d20 icon, the gravestones, the horn and lute phrases and all the code are his.
+Everything below is other people's work it builds on.
+
 ## Heroes and sounds
 
 Hero sprites (`hooks/sprites.ts`) are converted from **16x16 DungeonTileset II** by 0x72,

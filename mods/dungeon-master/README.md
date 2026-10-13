@@ -47,6 +47,18 @@ in the Tome).
 Mods are an early-access part of Claude Code, so a future update may change them. The DM screen is built
 for the Claude desktop app; in a terminal you get the same pages in text.
 
+## Updating
+
+Updates come out as new versions in this repository. To get the newest one:
+
+```
+claude plugin update dungeon-master@nicbritz-mods
+```
+
+then start a new session. To have it happen by itself, open `/plugin`, go to **Marketplaces**, pick
+`nicbritz-mods` and switch on auto-update. The version you are on is at the bottom of the Tome (⚙), and
+`/dm status` starts with it.
+
 ## The buttons need one setting
 
 In auto mode the app only approves actions you asked Claude for, and a click on the map is not one, so it

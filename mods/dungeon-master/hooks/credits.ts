@@ -2,6 +2,18 @@
 // who made it, under what licence, and what was changed. CREDITS.md and the
 // files in licences/ hold the full texts.
 
+// Who made the mod and which version this is. VERSION must match
+// .claude-plugin/plugin.json (a test checks), so the Tome shows the version
+// that is actually installed.
+export const MOD = {
+  name: 'Dungeon Master',
+  version: '3.8.0',
+  author: 'Nico Britz',
+  authorUrl: 'https://github.com/NicBritz',
+  licence: 'MIT',
+  repository: 'https://github.com/NicBritz/claude-code-mods',
+} as const
+
 export type Credit = { what: string; who: string; licence: string; licenceUrl: string; source: string; changes: string }
 
 export const CREDITS: readonly Credit[] = [
@@ -39,4 +51,4 @@ export const CREDITS: readonly Credit[] = [
   },
 ]
 
-export const OWN_WORK = 'The themes, the icon, the horn and lute phrases, the gravestones and everything else were made for this mod.'
+export const OWN_WORK = 'Everything else (the themes, the icon, the horn and lute phrases, the gravestones and the rest) was made for this mod by Nico Britz.'

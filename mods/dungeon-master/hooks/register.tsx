@@ -31,7 +31,7 @@ import { HEARTBEAT_MS, agoWords, dataDirFrom, freshFiles, appSessionsFrom, folde
 import { DEFAULT_MAIN_NAME, DEFAULT_SETTINGS, cleanName, HEADING_FONTS, SECTIONS, SWITCH_GROUPS, type Switch, readRealmAsk, readSettings, sameSettings, settingsWords, switchLabel } from './settings'
 import { THEME_BLURBS, THEME_NAMES, type ThemeName, isThemeName, paletteOf } from './themes'
 import { type GlyphName, LOOP_FRAMES, animatedSvg, diePicture, headingPicture, iconPicture } from './art'
-import { CREDITS, OWN_WORK } from './credits'
+import { CREDITS, MOD, OWN_WORK } from './credits'
 import {
   ACHIEVEMENTS,
   ARCHIVES_FOR_SWEEP,
@@ -79,9 +79,10 @@ import {
 // outlive the session.
 const pals = atom({ plugin: 'dungeon-master', key: 'pals' } as const, [] as Pal[])
 const tick = atom({ plugin: 'dungeon-master', key: 'tick' } as const, 0)
-// The animation frame: only the drawings that move read it (the strip, the
-// party page, the rolling die), so a redraw for the walk never reaches the
-// settings, fame or map pages and swallows a click there.
+// The animation frame, one step per FRAME_MS while anyone is at work: only the
+// drawings that redraw anyway read it (the strip and the rolling die), so
+// a redraw for the walk never reaches the settings, fame or map pages and
+// swallows a click there.
 const frameTick = atom({ plugin: 'dungeon-master', key: 'frameTick' } as const, 0)
 // Whether the panel is open, for the strip's Open / Close toggle.
 const isPaneOpen = atom({ plugin: 'dungeon-master', key: 'isPaneOpen' } as const, false)
@@ -1129,9 +1130,21 @@ async function leaveRealm($: Engine): Promise<void> {
   await $.fs.write(kingdomFile(dir, selfId), JSON.stringify({ ...lastWritten, hasEnded: true })).catch(() => undefined)
 }
 
-// A moving drawing as one self-animating picture: fn draws frame n, and now
-// (the clock) keeps the loop going across redraws (animatedSvg says why).
-const looped = (draw: (frame: number) => string, now: number) => animatedSvg(LOOP_FRAMES.map(draw), FRAME_MS, now)
+// A moving drawing: fn draws frame n.
+//
+// At rest it is one self-animating picture, and now (the clock) keeps its
+// loop going across the odd redraw (animatedSvg says why). At work it is the
+// still frame of step (the frame timer's count): the strip then redraws on
+// every tool step, the desktop rebuilds each picture on every redraw, and a
+// rebuilt loop always started a little late, so bursts of tool steps slowed
+// the walk and quiet spells sped it up again. One frame per timer tick is an
+// even pace however often the strip redraws; a redraw between ticks draws the
+// same frame again, which shows as nothing.
+const looped = (draw: (frame: number) => string, now: number, step?: number) =>
+  step === undefined ? animatedSvg(LOOP_FRAMES.map(draw), FRAME_MS, now) : draw(step % LOOP_FRAMES.length)
+
+// Whether anyone is at work, so the frame timer runs and the moving drawings step on it.
+const isMoving = (list: readonly Pal[], lord: Overlord) => list.some(isActive) || lord.status !== 'idle' || isCompacting(lord)
 
 // --- the strip above the prompt -------------------------------------------
 
@@ -1149,6 +1162,7 @@ async function drawBand($: Engine, e: RenderInput<'AbovePrompt'>): Promise<Rende
   const lord = isShowcase ? showcaseLord(await read($, overlord)) : await read($, overlord)
   const frame = Math.floor(now / FRAME_MS)
   const isTerminal = e.surface === 'terminal'
+  const step = isMoving(allPals, await read($, overlord)) ? await read($, frameTick) : undefined
   const live = list.filter(isActive)
   const recent = list.filter(pal => !isActive(pal) && now - (pal.endedAt ?? 0) < RECENT_MS)
   const look = await lookNow($, chosen.theme)
@@ -1204,12 +1218,12 @@ async function drawBand($: Engine, e: RenderInput<'AbovePrompt'>): Promise<Rende
       {!isTerminal &&
         (chosen.mainLook < 0
           ? (() => {
-              const art = croppedFigure(looped(f => overlordSvg(lord.status, f, isCompacting(lord), figureTop(-1) - 2), now), -1, HUD_LORD_SIZE.height / 38)
+              const art = croppedFigure(looped(f => overlordSvg(lord.status, f, isCompacting(lord), figureTop(-1) - 2), now, step), -1, HUD_LORD_SIZE.height / 38)
               return svg(art.svg, `${mainName}, your character`, art)
             })()
           : (() => {
               const art = croppedFigure(
-                looped(f => heroSvg(chosen.mainLook, lord.status === 'waiting', lord.status !== 'idle' || isCompacting(lord) ? f : 0, HUD_HERO_SIZE, isCompacting(lord), figureTop(chosen.mainLook) - 2), now),
+                looped(f => heroSvg(chosen.mainLook, lord.status === 'waiting', lord.status !== 'idle' || isCompacting(lord) ? f : 0, HUD_HERO_SIZE, isCompacting(lord), figureTop(chosen.mainLook) - 2), now, step),
                 chosen.mainLook,
                 HUD_HERO_SIZE.height / 30,
               )
@@ -1231,7 +1245,7 @@ async function drawBand($: Engine, e: RenderInput<'AbovePrompt'>): Promise<Rende
         )}
         {!isTerminal && (
           <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
-            {svg(looped(f => contextBarSvg(lord.context, f, isCompacting(lord), BAR_SIZE), now), contextWords(lord.context, isCompacting(lord)), BAR_SIZE)}
+            {svg(looped(f => contextBarSvg(lord.context, f, isCompacting(lord), BAR_SIZE), now, step), contextWords(lord.context, isCompacting(lord)), BAR_SIZE)}
             <Text color={look.dim} wrap="wrap">
               {contextWords(lord.context, isCompacting(lord))}
             </Text>
@@ -1602,7 +1616,24 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
             'credits',
             'Credits and licences',
             'book',
-            CREDITS.map(one => (
+            [
+              <Box key="credit-maker" flexDirection="column">
+                <Text color={look.text} bold wrap="wrap">
+                  {MOD.name} {MOD.version}
+                </Text>
+                <Text color={look.dim} wrap="wrap">
+                  Made by {MOD.author} · {MOD.licence} licence
+                </Text>
+                {e.surface !== 'mobile' && (
+                  <Box flexDirection="row" gap={2} flexWrap="wrap">
+                    {(() => {
+                      const { Link } = $.ui.resolve(e)
+                      return [<Link key="credit-maker-src" href={MOD.repository} label="Source" />, <Link key="credit-maker-who" href={MOD.authorUrl} label={MOD.author} />]
+                    })()}
+                  </Box>
+                )}
+              </Box>,
+            ].concat(CREDITS.map(one => (
               <Box key={`credit:${one.what}`} flexDirection="column">
                 <Text color={look.text} bold wrap="wrap">
                   {one.what}
@@ -1622,7 +1653,7 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
                   </Box>
                 )}
               </Box>
-            )).concat([
+            ))).concat([
               <Text key="credit-own" color={look.dim} wrap="wrap">
                 {OWN_WORK}
               </Text>,
@@ -1630,6 +1661,9 @@ async function drawPane($: Engine, e: RenderInput<'Pane'>): Promise<RenderElemen
           )}
           <Text color={look.dim} wrap="wrap">
             From the message box: /dm settings, /dm theme underdark, /dm font fantasy, /dm dice off, /dm sound off.
+          </Text>
+          <Text key="tome-version" color={look.dim} wrap="wrap">
+            {MOD.name} {MOD.version}, made by {MOD.author}. To update: claude plugin update dungeon-master@nicbritz-mods
           </Text>
         </Box>
       </Box>
@@ -2382,7 +2416,7 @@ export const register: Register = on => {
     // or the main thread is at work.
     $.clock.every(FRAME_MS, () => {
       Promise.all([read($, pals), read($, overlord)])
-        .then(([list, lord]) => (list.some(isActive) || lord.status !== 'idle' || isCompacting(lord) ? update($, frameTick, n => n + 1) : undefined))
+        .then(([list, lord]) => (isMoving(list, lord) ? update($, frameTick, n => n + 1) : undefined))
         .catch(() => undefined)
     })
 
@@ -2416,7 +2450,7 @@ export const register: Register = on => {
     // What a bug report needs, shown to the person only (no tool for the model).
     if (asked.kind === 'status') {
       return {
-        text: `${settingsWords(await read($, settings))}. Map: ${lastListReport}; session list ${listDecision ?? 'not checked'}. Panel width: ${lastPaneColumns} columns (stacks below ${NARROW_COLUMNS}).${lastRefusal === '' ? '' : ` Last refusal: ${lastRefusal}`}`,
+        text: `${MOD.name} ${MOD.version}. ${settingsWords(await read($, settings))}. Map: ${lastListReport}; session list ${listDecision ?? 'not checked'}. Panel width: ${lastPaneColumns} columns (stacks below ${NARROW_COLUMNS}).${lastRefusal === '' ? '' : ` Last refusal: ${lastRefusal}`}`,
       }
     }
     if (asked.kind === 'theme') {
